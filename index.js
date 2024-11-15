@@ -1,11 +1,17 @@
-const { faker } = require('@faker-js/faker'); 
+const { faker } = require('@faker-js/faker');
 const mysql = require("mysql2");
+const express = require("express");
+const app = express();
+const path = require("path");
+
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "/views"));
 
 // Create a connection
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
-  database: 'test', // Make sure 'test' database exists
+  database: 'delta_app',
   password: 'root'
 });
 
@@ -16,34 +22,60 @@ connection.connect((err) => {
     return;
   }
   console.log("Connected to the MySQL database.");
-
-  // Query to show tables
-  try {
-    connection.query("SHOW TABLES", (err, result) => {
-      if (err) throw err;
-      console.log(result);
-    });
-  } catch (err) {
-    console.log("Query error:", err);
-  } finally {
-    // Close the connection
-    connection.end((err) => {
-      if (err) {
-        console.error("Error closing the connection:", err.message);
-      } else {
-        console.log("Connection closed.");
-      }
-    });
-  }
 });
 
-// Function to create a random user
+// Create a random user (unused in the code but can be used for seeding the database)
 let createRandomUser = () => {
-  return {
-    userId: faker.string.uuid(),
-    username: faker.internet.username(),
-    email: faker.internet.email(),
-    password: faker.internet.password(),
-  };
+  return [
+    faker.string.uuid(),
+    faker.internet.username(),
+    faker.internet.email(),
+    faker.internet.password(),
+  ];
 };
-// console.log(createRandomUser());
+
+// Home route
+app.get("/", (req, res) => {
+  let q = "SELECT COUNT(*) AS userCount FROM user";
+  connection.query(q, (err, result) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.send("Some error in Database");
+    }
+    let count = result[0]["userCount"];
+    res.render("home.ejs", { count });
+  });
+});
+
+// Display all users
+app.get("/user", (req, res) => {
+  let q = `SELECT * FROM user`;
+  connection.query(q, (err, users) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.send("Some error in Database");
+    }
+    // Ensure data exists before rendering the view
+    console.log(users); // To debug and check if users are being fetched
+    res.render("show.ejs", { users });
+  });
+});
+
+// Edit user route
+app.get("/user/:id/edit", (req, res) => {
+  let { id } = req.params;
+  let q = `SELECT * FROM user WHERE id ='${id}'`;
+  connection.query(q, (err, result) => {
+    if (err) {
+      console.error("Database query error:", err);
+      return res.send("Some error in Database");
+    }
+    console.log(result[0]);
+    res.render("edit.ejs", { user: result[0] });
+  });
+});
+
+// Start server
+app.listen(8080, () => {
+  console.log("Server is listening on port 8080");
+});
